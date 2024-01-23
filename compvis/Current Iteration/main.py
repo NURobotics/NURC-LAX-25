@@ -1,61 +1,95 @@
-import cv2, time
+import cv2
+import time
 import numpy as np
-from rays import ray_backtracking
-from camera_setup import camera_instantiator, find_camera_ids
-from camera import timers
+from camera import camera_instantiator
+from timers import timers
+from triangulation import LSLocalizer
+from predict import RLS
+import matplotlib.pyplot as plt
 
 
-""" 
-Cam_ids is an array with which the user specifies which cameras are to be used... 
-eg: cam_ids = [0] uses laptop webcam -- cam_ids = [1,2] uses 2 external cameras
-If given none it will default to finding the cam_ids function
-"""
+def calculate_points(lsl, rays, calculated_pts):
+    ray_vals = np.array(list(rays.values()))
+    calculated_pt = lsl.predict(ray_vals)
+    calculated_pts.append(calculated_pt)
+    print(f"Calculated point: {calculated_pt}")
+    return calculated_pt
 
 
-def main(cam_ids=None):
-    cameras = camera_instantiator(cam_ids)
-    print("Press q to release cameras and exit.\n")
+def fit_and_predict_rls(rls, calculated_pts):
+    labels = [time.time()] * len(calculated_pts)
+    rls.fit(calculated_pts, labels)
+    calculated_pt = calculated_pts[-1]
+    next_point = rls.predict(np.insert(calculated_pt, 0, 1))
+    print(f"Predicted next point: {next_point}")
+
+
+def draw_points(ax, new_point):
+    x, y, z = new_point[0], new_point[1], new_point[2]
+    ax.scatter(x, y, z, c="orange", marker="o", s=100)
+    ax.plot(x, y, z, color="r")
+    ax.set_xlabel("X"), ax.set_ylabel("Y"), ax.set_zlabel("Z")
+
+
+def main_loop(cameras, lsl, rls):
+    calculated_pts = []
+    ax = plt.axes(projection="3d")
 
     while True:
-        with timers.loop:
-            for camera in cameras.values():
-                camera.run()
-
-            # Check if the correct number of cameras have been instantiated to use ray_backtracking, if so proceed
-            camera_list = list(cameras.values())
-            if len(camera_list) == 2:
-                with timers.ray:
-                    rays = ray_backtracking(camera_list[0], camera_list[1])
-                    # TODO Implement triangulation based upon the rays returned
-                timers.ray_times.append(timers.ray.took)
-
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+        with timers.timers["Main Loop"]:
+            if cv2.waitKey(1) == ord("q"):
                 for camera in cameras.values():
                     camera.release_camera()
                 break
 
-        timers.loop_times.append(timers.loop.took)
+            rays = {
+                camera: camera.run()
+                for camera in cameras.values()
+                if camera.ball_located
+            }
+
+            if rays:
+                calculated_point = calculate_points(lsl, rays, calculated_pts)
+                if len(calculated_pts) % 30 == 0:
+                    draw_points(ax, calculated_point)
+
+            # fit_and_predict_rls(rls, calculated_pts)
+
+        timers.record_time("Main Loop")
+    plt.show()
+
+
+def main(camera_transforms, cam_ids=None):
+    cameras = camera_instantiator(cam_ids)
+    print("Press q to release cameras and exit.\n")
+    lam = 0.98
+    rls = RLS(4, lam, 1)
+    lsl = LSLocalizer(camera_transforms)
+    main_loop(cameras, lsl, rls)
 
     cv2.destroyAllWindows()
-
-    print(
-        f"The average time taken to fully loop was {round(np.average(timers.loop_times), 5)} ms"
-    )
-    print(
-        f"The average time taken to get frame was {round(np.average(timers.gf_times), 5)} ms"
-    )
-    print(
-        f"The average time taken to do binary centroid was {round(np.average(timers.bc_times), 5)} ms"
-    )
-    print(
-        f"The average time taken to show frame was {round(np.average(timers.sf_times), 5)} ms"
-    )
-    print(
-        f"The average time taken to calculate rays was {round(np.average(timers.ray_times), 5)} ms"
-        if timers.ray_times
-        else "No rays calculated"
-    )
+    timers.display_averages()
 
 
 if __name__ == "__main__":
-    main()
+    # first camera at origin
+    T_cam1 = np.array(
+        [
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
+        ]
+    )
+    # second camera rotated pi/2 about Z at (1, 1, 0)
+    T_cam2 = np.array(
+        [
+            [0, -1, 0, 1],
+            [1, 0, 0, 1],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
+        ]
+    )
+    camera_transforms = [T_cam1, T_cam2]
+
+    main(camera_transforms)

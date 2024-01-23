@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from frames import get_frame
 
 """ 
 1/14/24 Need to fix resetting mask -- current implementation does not support
@@ -44,9 +43,6 @@ def binary_centroid(camera):
 
 
 def get_hsv_ranges(camera):
-    # TODO: Fix bug (Bug occurs when then there is no camera selected from find_cam_id) --> Exit if there is no camera initialized
-    # TODO: Fix bug where reseting the range does not fully reset the hsv ranges
-
     def get_hsv_range(event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
             print(f"--> HSV values recorded")
@@ -82,7 +78,7 @@ def get_hsv_ranges(camera):
         "Click on the Video Stream frame until the mask looks correct.\nPress s to save hsv bounds.\nPress r to reset mask.\nPress q to exit"
     )
     while True:
-        get_frame(camera)
+        camera.get_frame()
         # Convert the frame to the HSV color space
         hsv_frame = cv2.cvtColor(camera.frame, cv2.COLOR_BGR2HSV)
 
@@ -120,16 +116,16 @@ def get_hsv_ranges(camera):
             print(f"--> Orange Lower for {camera.window}: {lowest_hsv}")
             print(f"--> Orange Upper for {camera.window}: {highest_hsv}\n")
             camera.orange_lower = lowest_hsv
-            camera.orage_upper = highest_hsv
+            camera.orange_upper = highest_hsv
             break
 
-        if cv2.waitKey(1) & 0xFF == ord("r"):
+        elif cv2.waitKey(1) == ord("r"):
             # Make the limits revert back
             print(f"--> Limits Reset!")
-            highest_hsv = np.array([0, 0, 0])
-            lowest_hsv = np.array([180, 255, 255])
+            camera.hsv_value = None
+            continue
 
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+        elif cv2.waitKey(1) == ord("q"):
             # Exit
             camera.release_camera()
             exit()
@@ -139,7 +135,7 @@ def get_hsv_ranges(camera):
     pass
 
 
-# I believe that this is unused legacy code but it falls into this bin
+# I believe that this is unused legacy code but it falls into this bin -- Aiden 1/21/24
 #
 # def hsv_mask_detec(self):
 #         # Inputs a frame from self

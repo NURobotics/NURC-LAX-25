@@ -1,4 +1,5 @@
 import numpy as np
+from timers import timers
 
 
 class LSLocalizer:
@@ -18,27 +19,26 @@ class LSLocalizer:
     def __init__(self, camera_transforms):
         self.camera_transforms = np.array(camera_transforms)
 
-    def predict(self, angle_pair_array, weights):
-        ray_directions = self.angles_to_rays(angle_pair_array)
-        ray_points = self.camera_transforms[:, :3, 3]
-        # print(f"{ray_points = }")
-        return self.find_nearest_point(ray_points, ray_directions, weights)
+    def predict(self, ray_vectors, weights=None):
+        with timers.timers["LSLocalizer"]:
+            if weights is None:
+                weights = np.ones(len(ray_vectors))
 
-    def angles_to_rays(self, ray_angles):
+            transformed_rays = self.ray_transforms(ray_vectors)
+            ray_points = self.camera_transforms[:, :3, 3]
+        timers.record_time("LSLocalizer")
+
+        return self.find_nearest_point(ray_points, transformed_rays, weights)
+
+    def ray_transforms(self, ray_vectors):
         transformed_rays = []
-        for i in range(len(ray_angles)):
-            theta, phi = ray_angles[i]
+        for i, ray in enumerate(ray_vectors):
             transform = self.camera_transforms[i]
             transform_origin = transform[:, 3]
 
-            ray = [
-                np.cos(phi) * np.sin(theta),
-                np.cos(phi) * np.cos(theta),
-                np.sin(phi),
-                1,
-            ]
-            ray = transform @ ray
+            ray = transform @ np.append(ray, 1)
             ray -= transform_origin
+
             transformed_rays.append(ray[:3])
 
         return np.array(transformed_rays)
@@ -57,10 +57,12 @@ class LSLocalizer:
 
         if not len(ray_directions) == n or not len(weights) == n:
             print("Size of ray_points and ray_directions do not match")
+            print(f"ray directions {ray_directions}, ray points {ray_points}")
             return np.zeros(3)
 
         if weights is None:
             weights = np.ones(n)
+        weights = np.array(weights)
 
         direction_magnitudes = np.linalg.norm(ray_directions, axis=1)
         ray_directions = weights[:, None] * (
