@@ -17,8 +17,8 @@ sys.path.append(new_dir)
 #------------------------------------------------#
 
 controller = Controller(debug_mode = False, exit_on_interrupt = False)  # Create the controller object
-#is_connected = controller.connect("/dev/tty.usbmodemC13E847AFFFF1")
-is_connected = controller.connect("COM4")
+is_connected = controller.connect("/dev/tty.usbmodemC13E847AFFFF1")
+#is_connected = controller.connect("COM4")
 
 # connect to the controller:
 # 1) COM9 for windows
@@ -54,6 +54,8 @@ while not has_quit:
 			while keyboard.is_pressed(key):
 				#wait until user is done sending commands
 				controller.send_command(cmds.DUAL_DRIVE, M1, M2)
+				#controller.send_command(cmds.DUAL_DRIVE, 100, 100)
+
 			controller.send_command(cmds.DUAL_DRIVE, 0, 0)   
 
 

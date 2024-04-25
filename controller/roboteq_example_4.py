@@ -7,10 +7,10 @@ import keyboard
 #extra file I designed to track along a given position
 
 controller = RoboteqHandler()
-connected = controller.connect("COM4")
+connected = controller.connect("/dev/tty.usbmodemC13E847AFFFF1")
 
 if __name__ == "__main__":
-    drive_speed = 0
+    drive_speed = 100
     #print("Press S to stop")
     #print("Press D to drive")
 
@@ -23,13 +23,14 @@ if __name__ == "__main__":
             print("Q pressed")
             print("Stopping motion")
             drive_speed = 0
-            controller.send_command(cmds.DUAL_DRIVE, drive_speed, drive_speed)
+            controller.send_command(cmds.DUAL_DRIVE, 0, 0)
             
         if user_in == 'x':
             print("X pressed")
             print("Starting to drive")
             drive_speed = 250
-            controller.send_command(cmds.DUAL_DRIVE, drive_speed, drive_speed)
+            controller.send_command(cmds.CLRST,"321654987")
+            controller.send_command(cmds.DUAL_DRIVE, drive_speed,drive_speed)
 
 
         if user_in == 'e':

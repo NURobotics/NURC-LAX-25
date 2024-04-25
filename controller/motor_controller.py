@@ -1,6 +1,7 @@
 
 from PyRoboteq.roboteq_handler import RoboteqHandler
 from PyRoboteq import roboteq_commands as cmds
+import time
 
 class Controller(RoboteqHandler):
     '''A simple structure to describe the motor controller at a higher level
@@ -17,6 +18,16 @@ class Controller(RoboteqHandler):
         self.pulley_rad = 0.012 #mm; doesn't take into account belt thickness
         self.encoder_cpr = 1250
         self.MAGIC_SCALAR = 1.73 #to adjust conversion from encoder counts to real-world posn
+
+        # Goal constants 
+        self.goal_height = 1.92 # meters
+        self.goal_width = 2.75 # meters
+        self.end_effector_height = 0.331 # meters
+        self.end_effector_width = 0.466 # meters
+
+        self.safty_distance = 0.05 # meters // 5 cm safty factor ie border
+
+        
 
     def read_curr_state(self):
         '''Read all relevant values from the Roboteq at once. Depending on baud rate,
@@ -109,20 +120,60 @@ class Controller(RoboteqHandler):
         self.read_value(cmds.READ_KI, 2)
         self.read_value(cmds.READ_KD, 2)
 
-    #init_coords = (0,0) #change based on actual posns read by encoders
-    #deltax, deltay = [coord[i] - init_coords[i] for i in range(len(coord))]
-    
-    ##use corexy principles to find change in motor linear positions.
-    ##will need to adjust what "m1" and "m2" are defined as later
-    #delta_m1_lin = delta_y + delta_x
-    #delta_m2_lin = delta_y - delta_x
+    def initialization(self):
+        # Set the (0,0) position of the goal in the top left corner of the goal
+        # Set the motor mode to open loop 
+        motor_mode = 0
+        self.send_command(cmds.MOTOR_MODE, 1, motor_mode)
+        self.send_command(cmds.MOTOR_MODE, 2, motor_mode)
+        time.sleep(self.dwell)
 
-    ##use x = r*theta to find angular change in motor
-    #delta_m1 = delta_m1_lin / pulley_rad
-    #delta_m2 = delta_m2_lin / pulley_rad
+        # Check that motor is in open loop mode
+        if self.read_value(cmds.READ_MMODE,1) != 0 and self.read_value(cmds.READ_MMODE,2) != 0:
+            raise Exception(f'Motor mode did not get set to open loop')
+        else:
+            print("Motor has been set to open loop mode")
 
-    #return (delta_m1, delta_m2)
+        # Wait until a button is pressed to set the encoders 0 positions
+        user_input = input("Move end effector to the top left position of the gantry as seen from a thrower's perspective.\nPress any key to set position")
+        self.send_command(cmds.SET_ENC_COUNTER, 1, 0) #first motor; set encoder to zero
+        self.send_command(cmds.SET_ENC_COUNTER, 2, 0) #second motor; set encoder to zero
+        time.sleep(self.dwell)
+        print(f"Home has been set at {[self.read_value(cmds.READ_ABSCNTR, 1),self.read_value(cmds.READ_ABSCNTR, 2)]}!")
 
-#def gen_array_speed_cmds():
-#    #check if position can be controlled by roboteq before doing this
-#    pass
+        # Move to the next position and record the encoder counts
+        user_input = input("Move end effector to the bottom right of the gantry as seen from the throwers perspective.\nPress any key to set postition")
+        self.bottom_right_encs = [self.read_value(cmds.READ_ABSCNTR, 1),self.read_value(cmds.READ_ABSCNTR, 2)]
+        self.bottom_right_poss = self.convert_enc_counts_to_posn(self.bottom_right_encs[0],self.bottom_right_encs[1])
+        time.sleep(self.dwell)
+        print(f'Encoder values set as {self.bottom_right_encs}\nPostion set at {self.bottom_right_poss}')
+        print(f'The goal is actually {self.goal_width,self.goal_height} meters. Does this align with above??')
+
+    def safety_protocol(self,commanded_point):
+        # The commanded point (x,y) is run through this function. It will check with the bounds of the goal to ensure that it will not come into contact with the goal frame.
+
+        # The (0,0) position is the top center of the goal frame
+        # Create the bounds on the real world positions
+        horizontal_bounds = (-self.goal_width/2 + self.end_effector_width + self.safty_distance, self.goal_width/2 - self.end_effector_width - self.safty_distance)
+        vertical_bounds = (0 - self.end_effector_height - self.safty_distance, - self.goal_height + self.end_effector_height + self.safty_distance)
+        # First off check if the 
+        pass
+
+
+        #init_coords = (0,0) #change based on actual posns read by encoders
+        #deltax, deltay = [coord[i] - init_coords[i] for i in range(len(coord))]
+        
+        ##use corexy principles to find change in motor linear positions.
+        ##will need to adjust what "m1" and "m2" are defined as later
+        #delta_m1_lin = delta_y + delta_x
+        #delta_m2_lin = delta_y - delta_x
+
+        ##use x = r*theta to find angular change in motor
+        #delta_m1 = delta_m1_lin / pulley_rad
+        #delta_m2 = delta_m2_lin / pulley_rad
+
+        #return (delta_m1, delta_m2)
+
+    #def gen_array_speed_cmds():
+    #    #check if position can be controlled by roboteq before doing this
+    #    pass
