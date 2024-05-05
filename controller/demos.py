@@ -5,6 +5,7 @@ from control_gui_helpers import *
 import time
 import sys
 import os
+import numpy as np
 
 #for visual GUI
 curr_dir = os.path.dirname(os.getcwd())
@@ -20,10 +21,26 @@ if (not is_connected):
 	raise Exception("Error in connection")
 
 #--------------------------#
-# Set the motor mode to closed loop count position
-motor_mode = 3
-controller.send_command(cmds.MOTOR_MODE, 1, motor_mode)
-controller.send_command(cmds.MOTOR_MODE, 2, motor_mode)
+
+## Run the initialization script to home the goalie
+
+#controller.initialization()
+print("Initialization Complete!")
+
+# Set initial controller gains
+controller.set_motor_modes(3)
+controller.set_pid_params(kp=20,ki=0,kd=0)
+controller.set_kinematics_params(accel=1000,decel=1000,max_v=400)
+
+for i in range(10):
+	print("Going to Positon 0")
+	controller.send_command(cmds.MOT_POS,1,0)
+	controller.send_command(cmds.MOT_POS,2,0)
+	time.sleep(2)
+	print("Going to Positon 6000")
+	controller.send_command(cmds.MOT_POS,1,6000)
+	controller.send_command(cmds.MOT_POS,2,6000)
+	time.sleep(2)
 
 # Define the limits in real world coordinates in meters
 goal_height = 1.92 # meters
@@ -31,8 +48,16 @@ goal_width = 2.75 # meters
 end_effector_height = 0.331 # meters
 end_effector_width = 0.466 # meters
 
-# In the infinite control loop there needs to be software to protect the control signal from destroying the frame
-commanded_position = [0,1]
-# Commanded position center point is the top and 
+# Input an inital point
+P = controller.bottom_right_poss / 2
+
+print(P)
+'''
+while (controller.safety_protocol(P)):
+	print(f'Encoder vals: [{controller.M1_abscntr,controller.M2_abscntr}')
 
 
+	# Update P
+
+
+'''

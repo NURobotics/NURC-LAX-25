@@ -91,10 +91,10 @@ library of Roboteq commands featured in the C++ code
 '''
 
 #action commands
-ICAP = "!ICAP" #integrator cap; to prevent windup
-KP = "!KP" #PID prop. gain
-KI = "!KI" #PID integral gain
-KD = "!KD" #PID deriv. gain
+ICAP = "^ICAP" #integrator cap; to prevent windup
+KP = "^KP" #PID prop. gain
+KI = "^KI" #PID integral gain
+KD = "^KD" #PID deriv. gain
 
 KPC1 = "!KPC1" #KP curve points for motor 1
 KPC2 = "!KPC2" #KP curve points for motor 2
