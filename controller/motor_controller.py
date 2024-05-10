@@ -26,7 +26,7 @@ class Controller(RoboteqHandler):
         self.end_effector_height = 0.331 # meters
         self.end_effector_width = 0.466 # meters
 
-        self.safty_distance = 0.05 # meters // 5 cm safty factor ie border
+        self.safty_factor = 0.95 # percentage of boundary
 
         self.dwell = 1 # seconds
 
@@ -56,8 +56,8 @@ class Controller(RoboteqHandler):
     
     def read_enc_values(self):
         # Read value returns a string so must do some string parsing to get the encoder counts as ints
-        self.M1_abscntr   = int(self.read_value(cmds.READ_ABSCNTR, 1)[2:])      # Read encoder counter absolute 
-        self.M2_abscntr   = int(self.read_value(cmds.READ_ABSCNTR, 2)[2:])      # Read encoder counter absolute
+        self.M1_abscntr   = int(self.read_value(cmds.READ_ABSCNTR, 1)[2:])      # Read encoder counter absolute & turn string into int
+        self.M2_abscntr   = int(self.read_value(cmds.READ_ABSCNTR, 2)[2:])      # Read encoder counter absolute & turn string into int
 
     def set_motor_modes(self,MMODE):
         """
@@ -137,7 +137,7 @@ class Controller(RoboteqHandler):
         
     def set_pid_params(self, kp, ki, kd):
         '''Sets gains for PID control all at once.'''
-        print("Attempting to set PID parameters")
+        print("Attempting to set PID parameters...")
         self.send_command(cmds.KP,1, kp)
         self.send_command(cmds.KD,1, kd)
         self.send_command(cmds.KI,1, ki)
@@ -150,18 +150,19 @@ class Controller(RoboteqHandler):
         time.sleep(self.dwell)
 
         if ((int(self.read_value(cmds.READ_KP, 1)[3:]) != kp) or (int(self.read_value(cmds.READ_KP, 2)[3:]) != kp)):
-            print(f'M1 parameters: {int(self.read_value(cmds.READ_KP, 1)[3:])},{int(self.read_value(cmds.READ_KI, 1)[3:])},{int(self.read_value(cmds.READ_KD, 1)[3:])}')
-            raise Exception(f'Kp PID Parameters failed!')
+            raise Exception(f'Kp PID Parameter failed!')
         elif((int(self.read_value(cmds.READ_KI, 1)[3:])!=ki) or (int(self.read_value(cmds.READ_KI, 2)[3:])!=ki)):
-            raise Exception(f'Ki PID Parameters failed!')
+            raise Exception(f'Ki PID Parameter failed!')
         elif((int(self.read_value(cmds.READ_KD, 1)[3:])!=kd)or(int(self.read_value(cmds.READ_KD, 2)[3:])!=kd)):
-            raise Exception(f'Kd PID Parameters failed!')
+            raise Exception(f'Kd PID Parameter failed!')
         else:
             print("PID Parameters Set!")
+
         
 
     def set_kinematics_params(self, accel, decel, max_v):
         #accel, decel, max velocity, rpms at max speed
+        print("Attempting to set kinematic parameters...")
         self.send_command(cmds.CL_MAX_ACCEL, 1, accel)
         self.send_command(cmds.CL_MAX_DECEL, 1, decel)
         self.send_command(cmds.CL_MAX_VEL, 1, max_v)
@@ -170,10 +171,17 @@ class Controller(RoboteqHandler):
         self.send_command(cmds.CL_MAX_DECEL, 2, decel)
         self.send_command(cmds.CL_MAX_VEL, 2, max_v)
 
-        print(self.read_value(cmds.READ_MVEL,1))
-        print(self.read_value(cmds.READ_MAC,1))
-        print(self.read_value(cmds.READ_MDEC,1))
-              
+        # Rest for a sec
+        time.sleep(self.dwell)
+
+        if ((int(self.read_value(cmds.READ_MVEL,1)[5:])!=max_v) or (int(self.read_value(cmds.READ_MVEL,2)[5:]) != max_v)):
+            raise Exception(f'Max velocity not set!')
+        elif((int(self.read_value(cmds.READ_MAC,1)[4:])!=accel) or (int(self.read_value(cmds.READ_MAC,2)[4:])!=accel)):
+            raise Exception(f'Max acceleration not set!')
+        elif((int(self.read_value(cmds.READ_MDEC,1)[5:])!=decel)or(int(self.read_value(cmds.READ_MDEC,2)[5:])!=decel)):
+            raise Exception(f'Max deceleration not set!')
+        else:
+            print("Kinematic Parameters Set!")              
 
     def read_PID(self):
 
@@ -188,8 +196,7 @@ class Controller(RoboteqHandler):
     def initialization(self):
         # Set the (0,0) position of the goal in the top left corner of the goal
         # Set the motor mode to open loop 
-        motor_mode = 0
-        self.set_motor_modes(motor_mode)
+        self.set_motor_modes(MMODE=0)
 
         # Wait until a button is pressed to set the encoders 0 positions
         user_input = input("Move end effector to the top left position of the gantry as seen from a thrower's perspective.\nPress any key to set position")
@@ -206,23 +213,53 @@ class Controller(RoboteqHandler):
         time.sleep(self.dwell)
         print(f'Encoder values set as {self.bottom_right_encs}\nPostion set at {self.bottom_right_poss}')
         print(f'The goal is actually {self.goal_width,self.goal_height} meters. Does this align with above??')
+        self.convert_worldspace_to_encoder_cts()
+
+    def calculate_bounds(self):
+        """
+        Function to compute the acceptable bounds for the system
+        From initialization sequence, origin is at the top left of the goal
+        Really important to check this as safety protocol depends on this being correct
+        """ 
+    
+        self.horizontal_bounds = [0 + self.bottom_right_poss[0]*(1-self.safty_factor), self.bottom_right_poss[0]-self.bottom_right_poss[0]*(1-self.safty_factor)]
+        self.vertical_bounds = [0 + self.bottom_right_poss[1]*(1-self.safty_factor), self.bottom_right_poss[1]-self.bottom_right_poss[1]*(1-self.safty_factor) ]
+        print(f'Horizontal bounds: {self.horizontal_bounds}')
+        print(f'Vertical Bounds: {self.vertical_bounds}')
+        print(f'System bounds set to {self.safty_factor} of full range of motion!')
 
     def safety_protocol(self,commanded_point):
         # The commanded point (x,y) is run through this function. It will check with the bounds of the goal to ensure that it will not come into contact with the goal frame.
         # The (0,0) position is the top center of the goal frame
-        # Create the bounds on the real world positions
-        # Get the current encoder values of t
-        self.read_enc_values()
+        x,y = commanded_point
 
-        horizontal_bounds = (-self.goal_width/2 + self.end_effector_width + self.safty_distance, self.goal_width/2 - self.end_effector_width - self.safty_distance)
-        vertical_bounds = (0 - self.end_effector_height - self.safty_distance, - self.goal_height + self.end_effector_height + self.safty_distance)
         in_safe_zone = True
-        if ():
-            pass
+        if (self.horizontal_bounds[0]>x>self.horizontal_bounds[1]):
+            in_safe_zone = False
+        
+        if (self.vertical_bounds[0]>y>self.vertical_bounds[1]):
+            in_safe_zone = False
 
         return in_safe_zone
+    
+    
+    def traverse_the_boundary(self):
+        """
+        Function will travel along the safety boundary
+        """
+        
+        self.set_motor_modes(MMODE=3) # Ensure motor mode is in closed loop
+        self.set_kinematics_params(accel=100,decel=100,max_v=40) # Conservative to start
+        self.set_pid_params(kp=2,ki=0,kd=0)
+        print("Attempting to traverse the safety boundary")
 
-
+        self.send_position_command([self.horizontal_bounds[0],self.vertical_bounds[0]])
+        time.sleep(10)
+        self.send_position_command([self.horizontal_bounds[1],self.vertical_bounds[0]])
+        time.sleep(10)
+        self.send_position_command([self.horizontal_bounds[1],self.vertical_bounds[1]])
+        time.sleep(10)
+        self.send_position_command([self.horizontal_bounds[0],self.vertical_bounds[1]])
     #init_coords = (0,0) #change based on actual posns read by encoders
     #deltax, deltay = [coord[i] - init_coords[i] for i in range(len(coord))]
     
