@@ -24,35 +24,29 @@ if (not is_connected):
 
 ## Run the initialization script to home the goalie
 
-#controller.initialization()
+controller.initialization()
 print("Initialization Complete!")
 
 # Set initial controller gains
-controller.set_motor_modes(MMODE=3) # Closed loop count position
-controller.set_pid_params(kp=20,ki=0,kd=0)
-controller.set_kinematics_params(accel=1000,decel=1000,max_v=400)
+controller.set_motor_modes(MMODE=0) # Closed loop count position
+#controller.set_pid_params(kp=20,ki=0,kd=0)
+#controller.set_kinematics_params(accel=100,decel=100,max_v=40) # Conservative 
 
-for i in range(10):
-	print("Going to Positon 0")
-	controller.send_command(cmds.MOT_POS,1,0)
-	controller.send_command(cmds.MOT_POS,2,0)
-	time.sleep(2)
-	print("Going to Positon 6000")
-	controller.send_command(cmds.MOT_POS,1,6000)
-	controller.send_command(cmds.MOT_POS,2,6000)
-	time.sleep(2)
 
 # Input an inital point prolly just the middle of the goal
-P = controller.bottom_right_poss / 2
+# P = controller.bottom_right_poss / 2
 
-print(P)
-'''
+# print(P)
+# Open loop testing scheme
 while(True):
-	while (controller.safety_protocol(P)):
-		print(f'Encoder vals: [{controller.M1_abscntr,controller.M2_abscntr}')
+	#while (controller.safety_protocol(P)):
+	controller.read_enc_values()
+	if not controller.safety_protocol(controller.convert_enc_counts_to_posn(controller.M1_abscntr,controller.M2_abscntr)):
+		print(f"End effector is outside of safety region! Recorded position: {controller.convert_enc_counts_to_posn(controller.M1_abscntr,controller.M2_abscntr)}")
+
+	print(f'Encoder vals: [{controller.M1_abscntr,controller.M2_abscntr}')
 
 
-		# Update P
+	# Update P
 
 
-'''
