@@ -13,3 +13,5 @@ python_gui/code/.vs/*
 *.pb
 *.pbtxt
 .venv/
+
+.vscode/

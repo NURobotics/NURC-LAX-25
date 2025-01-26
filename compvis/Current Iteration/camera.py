@@ -110,9 +110,9 @@ class Cam:
             self.get_frame()
         timers.record_time("Get Frame")
 
-        with timers.timers["Binary Centroid"]:
-            binary_centroid(self)
-        timers.record_time("Binary Centroid")
+        # with timers.timers["Binary Centroid"]:
+        #     binary_centroid(self)
+        # timers.record_time("Binary Centroid")
 
         # for now I guess compare mine to theirs
         with timers.timers["Dilation and Contours"]:
@@ -156,7 +156,7 @@ class Cam:
             elif key == ord("s"):
                 print(f"Skipping capture [{capture_index}]")
                 capture_index += 1
-                cap = cv.VideoCapture(capture_index)
+                cap = cv.VideoCapture(capture_index,  cv.CAP_DSHOW) # use cv.CAP_V4L on linuxs
                 cv.destroyAllWindows()
             elif key in (ord(c) for c in "0123456789"):
                 camera_index = int(chr(key))
@@ -164,7 +164,7 @@ class Cam:
                 self.set_id(capture_index)
                 self.set_cap(cap)
                 capture_index += 1
-                cap = cv.VideoCapture(capture_index)
+                cap = cv.VideoCapture(capture_index,  cv.CAP_DSHOW) # use cv.CAP_V4L on linuxs
                 cv.destroyAllWindows()
 
 
@@ -173,7 +173,7 @@ def find_camera_ids():
     for cam_id in range(
         3
     ):  # Adjust the range based on the number of cameras you want to check
-        cap = cv.VideoCapture(cam_id)
+        cap = cv.VideoCapture(cam_id, cv.CAP_DSHOW) # use cv.CAP_V4L on linuxs
         ret, _ = cap.read()
         if ret:
             ids.append(cam_id)
@@ -186,18 +186,28 @@ def camera_instantiator(cam_ids=None, static=False):
     if cam_ids is None:
         cam_ids = find_camera_ids()
 
-    lr = 0
-    pos = ["Left", "Right"]
-    for cam_id in cam_ids:
-        cam_name = f"Cam{cam_id}"
+    # lr = 0
+    # pos = ["Left", "Right"]
+    # for cam_id in cam_ids:
+    #     cam_name = f"Cam{cam_id}"
 
-        # cap = None fix
-        test_cam = Cam(camID=cam_id, name= pos[lr])
-        test_cam.assign_captures()
+    #     # cap = None fix
+    #     test_cam = Cam(camID=cam_id, name= pos[lr])
+    #     test_cam.assign_captures()
 
-        if test_cam.cap:
-            cameras[cam_name] = test_cam
-            lr += 1
+    #     if test_cam.cap:
+    #         cameras[cam_name] = test_cam
+    #         lr += 1
+
+
+
+    cameras = {
+        "left" : Cam("left", 0),
+        "right": Cam("right", 1)
+    }
+
+    cameras["left"].set_cap(cv.VideoCapture(0, cv.CAP_DSHOW))
+    cameras["right"].set_cap(cv.VideoCapture(2, cv.CAP_DSHOW))
 
 
     for camera in cameras.values():

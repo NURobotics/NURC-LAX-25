@@ -35,12 +35,15 @@ class RLS:
         x is a column vector as a numpy matrix
         t is a real scalar
         """
-        z = self.lam_inv * self.A * x
-        alpha = (1 + (x.T @ z).item()) ** (-1)
-        self.a_priori_error = t - (self.w.T @ x).item()
-        self.w = self.w + (t - alpha * (x.T @ (self.w + t * z)).item()) * z
-        self.A -= alpha * z * z.T
-        self.num_obs += 1
+        try: 
+            z = self.lam_inv * self.A * x
+            alpha = (1 + (x.T @ z).item()) ** (-1)
+            self.a_priori_error = t - (self.w.T @ x).item()
+            self.w = self.w + (t - alpha * (x.T @ (self.w + t * z)).item()) * z
+            self.A -= alpha * z * z.T
+            self.num_obs += 1
+        except:
+            pass
 
     def fit(self, X, y):
         """

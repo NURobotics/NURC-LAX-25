@@ -14,6 +14,7 @@ class Timers:
             "Binary Centroid": CodeTimer("Binary Centroid", silent=True),
             "Show Frame": CodeTimer("Show Frame", silent=True),
             "LSLocalizer": CodeTimer("LSLocalizer", silent=True),
+            "Dilation and Contours": CodeTimer("Dilation and Contours", silent=True)
         }
         self.times = {key: [] for key in self.timers}
 
