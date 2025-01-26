@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import imutils
 
 
 def binary_centroid(camera):
@@ -34,6 +35,70 @@ def binary_centroid(camera):
         return
     # Finally, set camera.x and camera.y to the computed positions
     camera.x, camera.y = positions[0], positions[1]
+
+
+
+"""
+following this tutorial
+https://pyimagesearch.com/2015/09/14/ball-tracking-with-opencv/
+
+"""
+
+def get_ball_center(camera):
+    if not camera.frame.all:
+        camera.x, camera.y = None, None
+
+    cx, cy = process_frame(camera.frame)
+    camera.x, camera.y = cx, cy
+
+def process_frame(frame):
+    frame = cv2.GaussianBlur(frame, (11, 11), 0.2)
+
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    """increase saturation"""
+    # (h, s, v) = cv2.split(hsv)
+    # s = s*1.5
+    # s = np.clip(s,0,255)
+    # hsv = cv2.merge([h,s,v])
+
+
+    mask = cv2.inRange(hsv, (0 , 139,  106), ( 10 ,  255, 255))
+
+    # eroding then dialating seems to be a weird way of denoising the image
+    mask = cv2.erode(mask, None, iterations=2)
+    mask = cv2.dilate(mask, None, iterations=2)
+
+
+    # find contours in the mask and initialize the current
+	# (x, y) center of the ball
+    contours = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
+		cv2.CHAIN_APPROX_SIMPLE)
+    contours = imutils.grab_contours(contours)
+    center = None
+
+    # frame2 = frame.copy()
+    # cv2.drawContours(frame2, contours, -1, (0, 255, 0), 3)
+    # cv2.imshow('contours', frame2)
+
+    
+	# only proceed if at least one contour was found
+    if len(contours) > 0:
+		# find the largest contour in the mask, then use
+		# it to compute the minimum enclosing circle and
+		# centroid
+        c = max(contours, key=cv2.contourArea)
+        # ((x, y), radius) = cv2.minEnclosingCircle(c)
+        M = cv2.moments(c)
+        center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+        return center
+        # only proceed if the radius meets a minimum size
+        # if radius > 10:
+        # 	# draw the circle and centroid on the frame,
+        # 	# then update the list of tracked points
+        #     cv2.circle(frame, (int(x), int(y)), int(radius),
+        # 		(0, 255, 255), 2)
+        #     cv2.circle(frame, center, 5, (0, 0, 255), -1)
 
 
 def get_hsv_ranges(camera):

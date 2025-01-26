@@ -1,7 +1,7 @@
 import cv2 as cv
 import time
 import numpy as np
-from masks import binary_centroid, get_hsv_ranges
+from masks import binary_centroid, get_hsv_ranges, get_ball_center
 from timers import timers
 from threading import Thread
 
@@ -113,6 +113,12 @@ class Cam:
         with timers.timers["Binary Centroid"]:
             binary_centroid(self)
         timers.record_time("Binary Centroid")
+
+        # for now I guess compare mine to theirs
+        with timers.timers["Dilation and Contours"]:
+            get_ball_center(self)
+        timers.record_time("Dilation and Contours")
+
 
         with timers.timers["Show Frame"]:
             self.show_circled_frame()
