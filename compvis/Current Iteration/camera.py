@@ -133,7 +133,7 @@ class Cam:
         print("-")
 
         capture_index = 0
-        cap = cv.VideoCapture(capture_index)
+        cap = cv.VideoCapture(capture_index, cv.CAP_DSHOW) # use cv.CAP_V4L on linuxs
 
         while True:
             ret, frame = cap.read()
