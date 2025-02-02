@@ -7,6 +7,8 @@ from triangulation import LSLocalizer
 from predict import RecursivePolynomialFit
 from visualization import PointInSpace
 
+from lsrl_predict import solve_zeroes, quadratic_regression, linear_regression
+
 
 def calculate_points(lsl, rays, calculated_pts):
     ray_vals = np.array(list(rays.values()))
@@ -33,6 +35,18 @@ def main_loop(cameras, lsl, static):
     x_rpf = RecursivePolynomialFit(2)
     y_rpf = RecursivePolynomialFit(2)
     z_rpf = RecursivePolynomialFit(2)
+
+
+    reset_time = 1
+    start = time()
+
+    # during profiling I saw that appending to a normal list is faster than
+    # appending to a numpy array
+    observations = {'x' : [], 'y': [], 'z': [], 'time' : []}
+
+    # some paramenters
+
+
     
     
 
@@ -50,8 +64,26 @@ def main_loop(cameras, lsl, static):
             }
 
 
+            # reset the arrays every once in a while
+            if time() - start > 0.5:
+                observations = {'x' : [], 'y': [], 'z': [], 'time' : []}
+                start = time()
+
+
+
             if rays:
                 calculated_point = calculate_points(lsl, rays, calculated_pts)
+
+                # print("Calculated point", calculated_point)
+
+
+                observations['time'].append(time() - start)
+                observations['x'].append(calculated_point[0])
+                observations['y'].append(calculated_point[1])
+                observations['z'].append(calculated_point[2])
+
+
+
                 plotter.draw_point(calculated_point)
 
                 # print(f"Predicted ball position: {predicted_point}")
@@ -59,6 +91,44 @@ def main_loop(cameras, lsl, static):
                 detected_frames += 1
             else:
                 detected_frames -= 1
+
+
+            
+            if len(observations['y']) > 4: # have at least 4 observations to test
+                # do a regression
+                """
+                on my computer:
+                quadratic regression takes 10.199s / 100000 calls = 0.00010199s = 0.102 ms per call
+                poly_predict_with_coeffs takes 19.781s / 5000000 calls = 0.0000039562 per call = 0.0039562 ms per call
+                should be ok to just run a whole regression every few frames
+                
+                """
+
+
+                time_stamps = np.array(observations['time'])
+                # seems like it uses a z up coordinate system, so that one should be quadratic
+                y_func, y_coeffs = linear_regression(time_stamps, np.array(observations['y']))
+                x_func, x_coeffs = linear_regression(time_stamps, np.array(observations['x']))
+                z_func, z_coeffs = quadratic_regression(time_stamps, np.array(observations['z']))
+                print("Current functions")
+                print(y_func, x_func, z_func)
+                print()
+                print()
+                intersection_time = solve_zeroes(y_coeffs)
+                if intersection_time:
+                    x_predicted = x_func(intersection_time)
+                    z_predicted = z_func(intersection_time)
+                    print(f"Anthony x_coord prediction = {x_predicted}")
+                    print(f"Anthony z_coord prediction = {z_predicted}")
+                else:
+                    print("Anthony Could't predict")
+                print()
+                print()
+
+
+
+            
+            
 
             detected_frames = min(max(0, detected_frames), detected_frames_cap)
 
@@ -75,6 +145,8 @@ def main_loop(cameras, lsl, static):
 
                 print(f"x_coord prediction = {x_predicted}")
                 print(f"z_coord prediction = {z_predicted}")
+
+
 
 
             else:
