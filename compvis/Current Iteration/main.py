@@ -6,8 +6,14 @@ from timers import timers
 from triangulation import LSLocalizer
 from predict import RecursivePolynomialFit
 from visualization import PointInSpace
-
+from motor_control import controller_stat, move_motors_to_world_position
 from lsrl_predict import solve_zeroes, quadratic_regression, linear_regression
+
+
+
+# a lacrosse goal is a square with sidelength 6 feet (182.9 cm)
+GOALDIMS = 182.9
+CAM1_TO_GOAL = 0 # TODO: measure actual distance to this
 
 
 def calculate_points(lsl, rays, calculated_pts):
@@ -145,6 +151,17 @@ def main_loop(cameras, lsl, static):
 
                 print(f"x_coord prediction = {x_predicted}")
                 print(f"z_coord prediction = {z_predicted}")
+
+
+
+                # camera 1 is defined at origin so  the ball "in" range should be
+                # dist_from_cam1_to_goal <= x <= dist_from_cam1_to_goal + 6 feet
+
+                # check that ball is actually in frame of goal
+                if CAM1_TO_GOAL <= x_predicted <= GOALDIMS + CAM1_TO_GOAL and z_predicted <= GOALDIMS:
+                    move_motors_to_world_position(x_predicted, z_predicted)
+
+
 
 
 
